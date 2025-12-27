@@ -1,5 +1,5 @@
 # qBittorrent, OpenVPN and WireGuard, qbittorrentvpn
-# Updated to Debian 12 Bookworm for better package versions and Qt6 support
+# Optimized for GitHub Actions with fixed Boost version
 FROM debian:bookworm-slim
 
 WORKDIR /opt
@@ -9,19 +9,21 @@ RUN usermod -u 99 nobody
 # Make directories
 RUN mkdir -p /downloads /config/qBittorrent /etc/openvpn /etc/qbittorrent
 
-# Install boost
+# Install boost with FIXED VERSION (plus fiable pour GitHub Actions)
+# Update this version manually when needed
+ARG BOOST_VERSION=1.87.0
+ARG BOOST_VERSION_UNDERSCORE=1_87_0
+
 RUN apt update \
     && apt upgrade -y  \
     && apt install -y --no-install-recommends \
     curl \
     ca-certificates \
     g++ \
-    libxml2-utils \
-    && BOOST_VERSION_DOT=$(curl -sX GET "https://www.boost.org/feed/news.rss" | xmllint --xpath '//rss/channel/item/title/text()' - | awk -F 'Version' '{print $2 FS}' - | sed -e 's/Version//g;s/\ //g' | xargs | awk 'NR==1{print $1}' -) \
-    && BOOST_VERSION=$(echo ${BOOST_VERSION_DOT} | head -n 1 | sed -e 's/\./_/g') \
-    && curl -o /opt/boost_${BOOST_VERSION}.tar.gz -L https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VERSION_DOT}/source/boost_${BOOST_VERSION}.tar.gz \
-    && tar -xzf /opt/boost_${BOOST_VERSION}.tar.gz -C /opt \
-    && cd /opt/boost_${BOOST_VERSION} \
+    && echo "Installing Boost ${BOOST_VERSION}" \
+    && curl -o /opt/boost_${BOOST_VERSION_UNDERSCORE}.tar.gz -L https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION_UNDERSCORE}.tar.gz \
+    && tar -xzf /opt/boost_${BOOST_VERSION_UNDERSCORE}.tar.gz -C /opt \
+    && cd /opt/boost_${BOOST_VERSION_UNDERSCORE} \
     && ./bootstrap.sh --prefix=/usr \
     && ./b2 --prefix=/usr install \
     && cd /opt \
@@ -30,7 +32,6 @@ RUN apt update \
     curl \
     ca-certificates \
     g++ \
-    libxml2-utils \
     && apt-get clean \
     && apt --purge autoremove -y \
     && rm -rf \
@@ -46,8 +47,9 @@ RUN apt update \
     curl \
     jq \
     unzip \
-    && NINJA_ASSETS=$(curl -sX GET "https://api.github.com/repos/ninja-build/ninja/releases" | jq '.[] | select(.prerelease==false) | .assets_url' | head -n 1 | tr -d '"') \
-    && NINJA_DOWNLOAD_URL=$(curl -sX GET ${NINJA_ASSETS} | jq '.[] | select(.name | match("ninja-linux";"i")) .browser_download_url' | tr -d '"') \
+    && NINJA_ASSETS=$(curl -sX GET "https://api.github.com/repos/ninja-build/ninja/releases/latest" | jq -r '.assets_url') \
+    && NINJA_DOWNLOAD_URL=$(curl -sX GET ${NINJA_ASSETS} | jq -r '.[] | select(.name | test("ninja-linux")) | .browser_download_url') \
+    && echo "Downloading Ninja from ${NINJA_DOWNLOAD_URL}" \
     && curl -o /opt/ninja-linux.zip -L ${NINJA_DOWNLOAD_URL} \
     && unzip /opt/ninja-linux.zip -d /opt \
     && mv /opt/ninja /usr/local/bin/ninja \
@@ -72,8 +74,9 @@ RUN apt update \
     ca-certificates \
     curl \
     jq \
-    && CMAKE_ASSETS=$(curl -sX GET "https://api.github.com/repos/Kitware/CMake/releases" | jq '.[] | select(.prerelease==false) | .assets_url' | head -n 1 | tr -d '"') \
-    && CMAKE_DOWNLOAD_URL=$(curl -sX GET ${CMAKE_ASSETS} | jq '.[] | select(.name | match("Linux-x86_64.sh";"i")) .browser_download_url' | tr -d '"') \
+    && CMAKE_ASSETS=$(curl -sX GET "https://api.github.com/repos/Kitware/CMake/releases/latest" | jq -r '.assets_url') \
+    && CMAKE_DOWNLOAD_URL=$(curl -sX GET ${CMAKE_ASSETS} | jq -r '.[] | select(.name | test("Linux-x86_64.sh")) | .browser_download_url') \
+    && echo "Downloading CMake from ${CMAKE_DOWNLOAD_URL}" \
     && curl -o /opt/cmake.sh -L ${CMAKE_DOWNLOAD_URL} \
     && chmod +x /opt/cmake.sh \
     && /bin/bash /opt/cmake.sh --skip-license --prefix=/usr \
@@ -98,11 +101,12 @@ RUN apt update \
     curl \
     jq \
     libssl-dev \
-    && LIBTORRENT_ASSETS=$(curl -sX GET "https://api.github.com/repos/arvidn/libtorrent/releases" | jq '.[] | select(.prerelease==false) | select(.target_commitish=="RC_1_2") | .assets_url' | head -n 1 | tr -d '"') \
-    && LIBTORRENT_DOWNLOAD_URL=$(curl -sX GET ${LIBTORRENT_ASSETS} | jq '.[0] .browser_download_url' | tr -d '"') \
-    && LIBTORRENT_NAME=$(curl -sX GET ${LIBTORRENT_ASSETS} | jq '.[0] .name' | tr -d '"') \
+    && LIBTORRENT_ASSETS=$(curl -sX GET "https://api.github.com/repos/arvidn/libtorrent/releases" | jq -r '[.[] | select(.prerelease==false) | select(.target_commitish=="RC_1_2")] | .[0] | .assets_url') \
+    && LIBTORRENT_DOWNLOAD_URL=$(curl -sX GET ${LIBTORRENT_ASSETS} | jq -r '.[0] | .browser_download_url') \
+    && LIBTORRENT_NAME=$(curl -sX GET ${LIBTORRENT_ASSETS} | jq -r '.[0] | .name') \
+    && echo "Downloading libtorrent ${LIBTORRENT_NAME}" \
     && curl -o /opt/${LIBTORRENT_NAME} -L ${LIBTORRENT_DOWNLOAD_URL} \
-    && tar -xzf /opt/${LIBTORRENT_NAME} \
+    && tar -xzf /opt/${LIBTORRENT_NAME} -C /opt \
     && rm /opt/${LIBTORRENT_NAME} \
     && cd /opt/libtorrent-rasterbar* \
     && cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH=/usr -DCMAKE_CXX_STANDARD=17 \
@@ -123,8 +127,7 @@ RUN apt update \
     /tmp/* \
     /var/tmp/*
 
-# Compile and install qBittorrent - Using Qt5 for compatibility
-# Note: Qt6 is available in Bookworm (qt6-base-dev qt6-tools-dev) for future upgrade
+# Compile and install qBittorrent
 RUN apt update \
     && apt upgrade -y \
     && apt install -y --no-install-recommends \
@@ -141,7 +144,7 @@ RUN apt update \
     && QBITTORRENT_RELEASE=$(curl -sX GET "https://api.github.com/repos/qBittorrent/qBittorrent/releases/latest" | jq -r '.tag_name') \
     && echo "Building qBittorrent ${QBITTORRENT_RELEASE} on Debian Bookworm with Qt5" \
     && curl -o /opt/qBittorrent-${QBITTORRENT_RELEASE}.tar.gz -L "https://github.com/qbittorrent/qBittorrent/archive/${QBITTORRENT_RELEASE}.tar.gz" \
-    && tar -xzf /opt/qBittorrent-${QBITTORRENT_RELEASE}.tar.gz \
+    && tar -xzf /opt/qBittorrent-${QBITTORRENT_RELEASE}.tar.gz -C /opt \
     && rm /opt/qBittorrent-${QBITTORRENT_RELEASE}.tar.gz \
     && cd /opt/qBittorrent-${QBITTORRENT_RELEASE} \
     && cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local -DGUI=OFF -DCMAKE_CXX_STANDARD=17 \
