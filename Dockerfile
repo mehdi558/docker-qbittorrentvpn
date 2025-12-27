@@ -9,7 +9,7 @@ RUN usermod -u 99 nobody
 # Make directories
 RUN mkdir -p /downloads /config/qBittorrent /etc/openvpn /etc/qbittorrent
 
-# Install ALL build dependencies from Debian repos (no API calls, no compilation)
+# Install ALL build dependencies from Debian repos
 RUN apt update \
     && apt upgrade -y \
     && apt install -y --no-install-recommends \
@@ -30,14 +30,14 @@ RUN apt update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Compile and install libtorrent-rasterbar (only external component we need)
+# Compile and install libtorrent-rasterbar
 RUN apt update \
     && apt install -y --no-install-recommends \
     ca-certificates \
     curl \
-    && echo "Downloading libtorrent..." \
+    && echo "Downloading libtorrent-rasterbar 1.2.19..." \
     && curl -L -o /opt/libtorrent.tar.gz \
-       "https://github.com/arvidn/libtorrent/releases/download/v1.2.19/libtorrent-rasterbar-1.2.19.tar.gz" \
+       https://github.com/arvidn/libtorrent/releases/download/v1.2.19/libtorrent-rasterbar-1.2.19.tar.gz \
     && tar -xzf /opt/libtorrent.tar.gz -C /opt \
     && rm /opt/libtorrent.tar.gz \
     && cd /opt/libtorrent-rasterbar-1.2.19 \
@@ -60,14 +60,13 @@ RUN apt update \
     && apt install -y --no-install-recommends \
     ca-certificates \
     curl \
-    && echo "Downloading qBittorrent..." \
-    && QBITTORRENT_VERSION="release-5.1.4" \
+    && echo "Downloading qBittorrent 5.1.4..." \
     && curl -L -o /opt/qbittorrent.tar.gz \
-       "https://github.com/qbittorrent/qBittorrent/archive/${QBITTORRENT_VERSION}.tar.gz" \
+       https://github.com/qbittorrent/qBittorrent/archive/refs/tags/release-5.1.4.tar.gz \
     && tar -xzf /opt/qbittorrent.tar.gz -C /opt \
     && rm /opt/qbittorrent.tar.gz \
-    && cd /opt/qBittorrent-${QBITTORRENT_VERSION} \
-    && echo "Compiling qBittorrent ${QBITTORRENT_VERSION}..." \
+    && cd /opt/qBittorrent-release-5.1.4 \
+    && echo "Compiling qBittorrent 5.1.4..." \
     && cmake -G Ninja -B build \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
