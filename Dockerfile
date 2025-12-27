@@ -1,5 +1,5 @@
 # qBittorrent, OpenVPN and WireGuard
-# Ultra-fast build using Debian packages
+# Minimal and reliable build using Debian packages
 FROM debian:bookworm-slim
 
 WORKDIR /opt
@@ -9,7 +9,7 @@ RUN usermod -u 99 nobody
 # Make directories
 RUN mkdir -p /downloads /config/qBittorrent /etc/openvpn /etc/qbittorrent
 
-# Install qBittorrent and all dependencies in one go
+# Install qBittorrent and core dependencies
 RUN apt update && apt upgrade -y \
     && apt install -y --no-install-recommends \
     ca-certificates \
@@ -24,6 +24,8 @@ RUN apt update && apt upgrade -y \
     openvpn \
     procps \
     qbittorrent-nox \
+    unzip \
+    zip \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -32,18 +34,6 @@ RUN echo "deb http://deb.debian.org/debian/ unstable main" > /etc/apt/sources.li
     && printf 'Package: *\nPin: release a=unstable\nPin-Priority: 150\n' > /etc/apt/preferences.d/limit-unstable \
     && apt update \
     && apt install -y --no-install-recommends wireguard-tools \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install compression tools
-RUN echo "deb http://deb.debian.org/debian/ bookworm non-free non-free-firmware" > /etc/apt/sources.list.d/non-free-unrar.list \
-    && printf 'Package: *\nPin: release a=non-free\nPin-Priority: 150\n' > /etc/apt/preferences.d/limit-non-free \
-    && apt update \
-    && apt install -y --no-install-recommends \
-    p7zip-full \
-    unrar \
-    unzip \
-    zip \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
