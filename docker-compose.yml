@@ -1,0 +1,129 @@
+version: '3.8'
+
+services:
+  qbittorrent-vpn:
+    image: qbittorrentvpn:latest
+    container_name: qbittorrent-vpn
+    hostname: qbittorrent
+    
+    # Capacités nécessaires pour le VPN
+    cap_add:
+      - NET_ADMIN
+    
+    # Paramètres système requis
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+      # Décommentez la ligne suivante si vous utilisez IPv6 avec WireGuard
+      # - net.ipv6.conf.all.disable_ipv6=0
+    
+    environment:
+      # ===== Configuration VPN =====
+      - VPN_ENABLED=yes                    # Activer le VPN (yes/no)
+      - VPN_TYPE=wireguard                 # Type de VPN (wireguard/openvpn)
+      
+      # Pour OpenVPN uniquement (optionnel si credentials.conf existe)
+      # - VPN_USERNAME=votre_username
+      # - VPN_PASSWORD=votre_password
+      
+      # ===== Configuration Réseau =====
+      - LAN_NETWORK=192.168.1.0/24         # IMPORTANT: Adaptez à votre réseau local !
+      # Pour plusieurs réseaux, séparez par des virgules :
+      # - LAN_NETWORK=192.168.1.0/24,10.0.0.0/8
+      
+      - NAME_SERVERS=1.1.1.1,1.0.0.1       # Serveurs DNS (CloudFlare par défaut)
+      
+      # ===== Permissions des fichiers =====
+      - PUID=1000                          # User ID (utilisez la commande 'id' pour trouver le vôtre)
+      - PGID=1000                          # Group ID
+      - UMASK=002                          # Masque de permissions
+      
+      # ===== Configuration SSL =====
+      - ENABLE_SSL=yes                     # Activer HTTPS pour l'interface Web
+      
+      # ===== Health Check =====
+      - HEALTH_CHECK_HOST=one.one.one.one  # Host pour vérifier la connexion
+      - HEALTH_CHECK_INTERVAL=300          # Vérification toutes les 5 minutes
+      - HEALTH_CHECK_SILENT=1              # Ne pas afficher les messages de santé
+      - RESTART_CONTAINER=yes              # Redémarrer si le VPN tombe
+      
+      # ===== Options avancées =====
+      # - INSTALL_PYTHON3=yes              # Installer Python3 (pour scripts)
+      # - ADDITIONAL_PORTS=9091,9117       # Ports supplémentaires à autoriser
+      # - LEGACY_IPTABLES=yes              # Pour QNAP NAS ou anciens systèmes
+      
+      # ===== Fuseau horaire =====
+      - TZ=Europe/Paris                    # Votre fuseau horaire
+    
+    volumes:
+      # Configuration (inclut qBittorrent + VPN)
+      - ./config:/config
+      
+      # Dossier de téléchargements
+      - ./downloads:/downloads
+      
+      # Optionnel: Montages supplémentaires
+      # - /mnt/media:/media
+      # - /mnt/torrents:/torrents
+    
+    ports:
+      # Interface Web qBittorrent
+      - "8080:8080"
+      
+      # Ports BitTorrent
+      - "8999:8999"      # TCP
+      - "8999:8999/udp"  # UDP
+    
+    restart: unless-stopped
+    
+    # Optionnel: Limitations de ressources
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '2'
+    #       memory: 2G
+    #     reservations:
+    #       memory: 512M
+    
+    # Optionnel: Healthcheck
+    # healthcheck:
+    #   test: ["CMD-SHELL", "curl -f https://localhost:8080 || exit 1"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 40s
+
+# ===== Configuration avec plusieurs containers (exemple) =====
+# Décommentez pour ajouter d'autres services qui utilisent le réseau de qBittorrent
+
+  # jackett:
+  #   image: linuxserver/jackett:latest
+  #   container_name: jackett
+  #   network_mode: "service:qbittorrent-vpn"  # Utilise le VPN de qbittorrent
+  #   environment:
+  #     - PUID=1000
+  #     - PGID=1000
+  #     - TZ=Europe/Paris
+  #   volumes:
+  #     - ./jackett-config:/config
+  #   depends_on:
+  #     - qbittorrent-vpn
+  #   restart: unless-stopped
+
+  # sonarr:
+  #   image: linuxserver/sonarr:latest
+  #   container_name: sonarr
+  #   network_mode: "service:qbittorrent-vpn"  # Utilise le VPN de qbittorrent
+  #   environment:
+  #     - PUID=1000
+  #     - PGID=1000
+  #     - TZ=Europe/Paris
+  #   volumes:
+  #     - ./sonarr-config:/config
+  #     - ./downloads:/downloads
+  #   depends_on:
+  #     - qbittorrent-vpn
+  #   restart: unless-stopped
+
+networks:
+  default:
+    driver: bridge
