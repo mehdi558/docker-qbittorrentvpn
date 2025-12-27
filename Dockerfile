@@ -1,5 +1,6 @@
 # qBittorrent, OpenVPN and WireGuard, qbittorrentvpn
-FROM debian:bullseye-slim
+# Updated to Debian 12 Bookworm for better package versions and Qt6 support
+FROM debian:bookworm-slim
 
 WORKDIR /opt
 
@@ -122,7 +123,8 @@ RUN apt update \
     /tmp/* \
     /var/tmp/*
 
-# Compile and install qBittorrent - UPDATED TO USE LATEST RELEASE
+# Compile and install qBittorrent - Using Qt5 for compatibility
+# Note: Qt6 is available in Bookworm (qt6-base-dev qt6-tools-dev) for future upgrade
 RUN apt update \
     && apt upgrade -y \
     && apt install -y --no-install-recommends \
@@ -137,7 +139,7 @@ RUN apt update \
     qttools5-dev \
     zlib1g-dev \
     && QBITTORRENT_RELEASE=$(curl -sX GET "https://api.github.com/repos/qBittorrent/qBittorrent/releases/latest" | jq -r '.tag_name') \
-    && echo "Building qBittorrent ${QBITTORRENT_RELEASE}" \
+    && echo "Building qBittorrent ${QBITTORRENT_RELEASE} on Debian Bookworm with Qt5" \
     && curl -o /opt/qBittorrent-${QBITTORRENT_RELEASE}.tar.gz -L "https://github.com/qbittorrent/qBittorrent/archive/${QBITTORRENT_RELEASE}.tar.gz" \
     && tar -xzf /opt/qBittorrent-${QBITTORRENT_RELEASE}.tar.gz \
     && rm /opt/qBittorrent-${QBITTORRENT_RELEASE}.tar.gz \
@@ -179,7 +181,7 @@ RUN echo "deb http://deb.debian.org/debian/ unstable main" > /etc/apt/sources.li
     libqt5network5 \
     libqt5xml5 \
     libqt5sql5 \
-    libssl1.1 \
+    libssl3 \
     moreutils \
     net-tools \
     openresolv \
@@ -194,7 +196,7 @@ RUN echo "deb http://deb.debian.org/debian/ unstable main" > /etc/apt/sources.li
     /var/tmp/*
 
 # Install (un)compressing tools like unrar, 7z, unzip and zip
-RUN echo "deb http://deb.debian.org/debian/ bullseye non-free" > /etc/apt/sources.list.d/non-free-unrar.list \
+RUN echo "deb http://deb.debian.org/debian/ bookworm non-free non-free-firmware" > /etc/apt/sources.list.d/non-free-unrar.list \
     && printf 'Package: *\nPin: release a=non-free\nPin-Priority: 150\n' > /etc/apt/preferences.d/limit-non-free \
     && apt update \
     && apt -y upgrade \
